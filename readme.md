@@ -1,29 +1,61 @@
 
 # MCVE to reproduce timeout exception when using Devtools' intercept
 
-## Code
+## Prerequisites
+
+- Podman
+- Maven >= 3.6
+
+
+## How to run the reproducer
+
+### Start
 
 ```
-Route route = Route.matching(req -> GET == req.getMethod() && req.getUri().contains("/api/properties"))
-    .to(() -> req -> new HttpResponse()
-        .setStatus(responseCode)
-        .addHeader("Content-Type", "application/json")
-        .addHeader("-x-e2e-dev-tools-override", "mockPropertiesGetResponse")
-        .setContent(utf8String(responseBody)));
-
-new NetworkInterceptor(driver, route);
+grid term $ scripts/start-grid
+node term $ scripts/start-node
+mcve term $ mvn clean package
+mcve term $ java -jar target/selenium-devtools-intercept-mcve-1.0.0.jar 
 ```
+
+You may have to run the jar file multiple times if it does not show the exception. The exception shall be reproducible in at least 1/3 of runs.
+
+
+### Expected output
+
+This is what you shall see when the reproducer is able to reproduce the error:
+
+```
+...
+Info: open youtube
+Info: wait for consent dialog
+Info: dialog found
+Info: close the interceptor
+Info: close the driver
+Info: sleeping 15s after test is done ...
+org.openqa.selenium.TimeoutException: java.util.concurrent.TimeoutException
+   < rest of stack trace omitted >
+Info: exit.
+```
+
+
+### Cleanup
+
+You may want to remove the automatically created network:
+
+```
+grid term $ podman network remove selenium
+```
+
 
 ## Error
 
+After the interceptor was closed and the driver was quit, the "CDP Connection" thread throws this error, printed to `stderr`:
+
 ```
-    at org.openqa.selenium.devtools.Connection$Listener.lambda$onText$0(Connection.java:202)
-    at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1128)
-    at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:628)
-    at java.base/java.lang.Thread.run(Thread.java:829)
-Caused by: org.openqa.selenium.TimeoutException: java.util.concurrent.TimeoutException
+org.openqa.selenium.TimeoutException: java.util.concurrent.TimeoutException
 Build info: version: '4.1.3', revision: '7b1ebf28ef'
-System info: host: 'h001287568', ip: '192.168.122.1', os.name: 'Linux', os.arch: 'amd64', os.version: '4.15.0-191-generic', java.version: '11.0.16'
+System info: host: 'h001287568', ip: '10.208.2.6', os.name: 'Linux', os.arch: 'amd64', os.version: '4.15.0-192-generic', java.version: '11.0.16'
 Driver info: driver.version: unknown
     at org.openqa.selenium.devtools.Connection.sendAndWait(Connection.java:161)
     at org.openqa.selenium.devtools.DevTools.send(DevTools.java:70)
@@ -42,7 +74,9 @@ Driver info: driver.version: unknown
     at org.openqa.selenium.devtools.Connection.handle(Connection.java:257)
     at org.openqa.selenium.devtools.Connection.access$200(Connection.java:58)
     at org.openqa.selenium.devtools.Connection$Listener.lambda$onText$0(Connection.java:199)
-    ... 3 more
+    at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1128)
+    at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:628)
+    at java.base/java.lang.Thread.run(Thread.java:829)
 Caused by: java.util.concurrent.TimeoutException
     at java.base/java.util.concurrent.CompletableFuture.timedGet(CompletableFuture.java:1886)
     at java.base/java.util.concurrent.CompletableFuture.get(CompletableFuture.java:2021)

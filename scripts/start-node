@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+NETWORK_NAME="selenium"
+HUB_NAME="selenium-hub"
+NODE_NAME="selenium-node"
+
+hub_ip="$( podman container inspect ${HUB_NAME} | jq -r ".[0].NetworkSettings.Networks.${NETWORK_NAME}.IPAddress" )"
+
+podman run \
+	-it \
+	--rm \
+	-p 5555:5555 \
+	--shm-size="2g" \
+	-e SE_NODE_GRID_URL="http://localhost:4444/wd/hub" \
+	-e SE_NODE_MAX_SESSIONS=8 \
+	-e SE_EVENT_BUS_HOST=${hub_ip} \
+    -e SE_EVENT_BUS_PUBLISH_PORT=4442 \
+    -e SE_EVENT_BUS_SUBSCRIBE_PORT=4443 \
+	--net ${NETWORK_NAME} \
+    --name "${NODE_NAME}" \
+selenium/node-chrome:101.0-chromedriver-101.0
